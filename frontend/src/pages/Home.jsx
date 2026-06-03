@@ -69,7 +69,7 @@ export default function Home({ navigate }) {
             onClick={() => navigate('review')}
             className="flex items-center gap-2 px-8 py-4 bg-blue-500 hover:bg-blue-400 text-slate-950 rounded-xl font-mono text-sm font-bold shadow-[0_0_20px_rgba(59,130,246,0.35)] hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
           >
-            Launch Syntax Cockpit
+            Start Code Review
             <ArrowRight className="w-4 h-4" />
           </button>
           <button 

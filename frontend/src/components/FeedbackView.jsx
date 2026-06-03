@@ -17,10 +17,13 @@ export default function FeedbackView({
   analysis, 
   language, 
   selectedErrorLine, 
-  setSelectedErrorLine 
+  setSelectedErrorLine,
+  strictMode
 }) {
   const [activeTab, setActiveTab] = useState('diagnostics');
   const [copied, setCopied] = useState(false);
+
+  const isJsOrReact = language && (language.toLowerCase() === 'javascript' || language.toLowerCase() === 'react');
 
   if (!analysis) {
     return (
@@ -67,7 +70,7 @@ export default function FeedbackView({
                 : 'text-slate-500 hover:text-slate-350'
             }`}
           >
-            ERRORS & MENTOR
+            ROOT CAUSE & MENTOR
           </button>
           <button
             onClick={() => setActiveTab('formatting')}
@@ -79,16 +82,19 @@ export default function FeedbackView({
           >
             COMPLEXITY & STYLE
           </button>
-          <button
-            onClick={() => setActiveTab('refactoring')}
-            className={`flex-1 sm:flex-none px-4 py-1.5 rounded-md text-[10px] font-mono transition-all cursor-pointer ${
-              activeTab === 'refactoring'
-                ? 'bg-slate-900 text-blue-400 font-bold border border-slate-800'
-                : 'text-slate-500 hover:text-slate-350'
-            }`}
-          >
-            CORRECTED CODE
-          </button>
+          {!isJsOrReact && (
+            <button
+              onClick={() => setActiveTab('refactoring')}
+              className={`flex-1 sm:flex-none px-4 py-1.5 rounded-md text-[10px] font-mono transition-all cursor-pointer ${
+                activeTab === 'refactoring'
+                  ? 'bg-slate-900 text-blue-400 font-bold border border-slate-800'
+                  : 'text-slate-500 hover:text-slate-350'
+              }`}
+            >
+              CORRECTED CODE
+            </button>
+          )}
+
         </div>
       </div>
 
@@ -118,7 +124,7 @@ export default function FeedbackView({
             <div className="space-y-3">
               <span className="text-[9px] text-slate-500 uppercase tracking-widest block font-bold border-b border-slate-900 pb-2 flex items-center gap-1.5">
                 <ShieldAlert className="w-4 h-4 text-rose-500" />
-                Discovered Errors ({analysis.errors?.length || 0})
+                Discovered Root Cause Errors ({analysis.errors?.length || 0})
               </span>
 
               {(!analysis.errors || analysis.errors.length === 0) ? (
@@ -147,15 +153,33 @@ export default function FeedbackView({
                       <div
                         key={idx}
                         onClick={() => setSelectedErrorLine(errorItem.line)}
-                        className={`p-3.5 border rounded-xl cursor-pointer select-none transition-all ${cardBorderColor}`}
+                        className={`p-3.5 border rounded-xl cursor-pointer select-text transition-all ${cardBorderColor}`}
                       >
                         <div className="flex items-center justify-between mb-2">
                           <span className={`text-[9px] uppercase tracking-wider ${severityTextClass}`}>
                             {errorItem.severity} • {errorItem.issueType}
                           </span>
-                          <span className="text-[9px] text-slate-500">
-                            Line {errorItem.line}:{errorItem.column || 1}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[9px] text-slate-500">
+                              Line {errorItem.line}:{errorItem.column || 1}
+                            </span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigator.clipboard.writeText(`${errorItem.explanation}${errorItem.suggestion ? ` (Suggestion: ${errorItem.suggestion})` : ''}`);
+                                const btn = e.currentTarget;
+                                const originalHTML = btn.innerHTML;
+                                btn.innerHTML = '<span class="text-emerald-400 font-bold text-[8px] tracking-wider">COPIED</span>';
+                                setTimeout(() => {
+                                  btn.innerHTML = originalHTML;
+                                }, 1500);
+                              }}
+                              className="p-1 hover:bg-slate-900 rounded-md text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
+                              title="Copy error content"
+                            >
+                              <Copy className="w-3 h-3" />
+                            </button>
+                          </div>
                         </div>
 
                         <p className="text-[11px] font-sans text-slate-350 leading-relaxed font-semibold">
@@ -194,84 +218,112 @@ export default function FeedbackView({
 
         {/* TAB 2: COMPLEXITY & STYLING */}
         {activeTab === 'formatting' && (
-          <div className="space-y-6 animate-fadeIn font-mono text-[11px]">
-            {/* Complexity Estimation */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 bg-slate-950/60 border border-slate-900 rounded-xl space-y-1.5">
-                <span className="text-[8px] text-slate-500 uppercase tracking-widest block">Estimated Time Cost</span>
-                <span className={`text-sm font-extrabold block truncate ${
-                  analysis.timeComplexity && analysis.timeComplexity.includes('determined') ? 'text-slate-500 font-normal italic text-[10px]' : 'text-blue-400'
-                }`}>
-                  {analysis.timeComplexity}
-                </span>
-              </div>
-
-              <div className="p-4 bg-slate-950/60 border border-slate-900 rounded-xl space-y-1.5">
-                <span className="text-[8px] text-slate-500 uppercase tracking-widest block">Estimated Space Cost</span>
-                <span className={`text-sm font-extrabold block truncate ${
-                  analysis.spaceComplexity && analysis.spaceComplexity.includes('determined') ? 'text-slate-500 font-normal italic text-[10px]' : 'text-cyan-400'
-                }`}>
-                  {analysis.spaceComplexity}
-                </span>
-              </div>
+          strictMode ? (
+            <div className="glass-card border-amber-950/40 bg-amber-950/5 rounded-2xl p-6 flex flex-col items-center justify-center text-center h-[380px] font-mono text-xs text-amber-500/80 animate-fadeIn">
+              <AlertTriangle className="w-8 h-8 mb-3 text-amber-500 animate-pulse" />
+              <h4 className="font-bold uppercase tracking-widest mb-2 text-amber-400">Strict mode locked</h4>
+              <p className="text-[10px] text-slate-500 uppercase leading-relaxed max-w-xs font-semibold">
+                Design metrics and styling suggestions are disabled in raw compiler verification mode (behaving strictly like javac).
+              </p>
+              <p className="text-[9px] text-slate-650 uppercase mt-4">
+                Switch to REPAIR MODE to enable virtual mentor fixes.
+              </p>
             </div>
-
-            {/* Formatting suggestions */}
-            <div className="p-4 bg-slate-950/60 border border-slate-900 rounded-xl space-y-3 font-sans">
-              <span className="text-[9px] font-mono text-slate-500 uppercase tracking-widest block font-bold flex items-center gap-1.5">
-                <Wand2 className="w-3.5 h-3.5 text-cyan-400" />
-                Formatting & Styling Suggestions
-              </span>
-
-              {(!analysis.formattingSuggestions) ? (
-                <p className="text-slate-500 italic text-[11px]">No layout adjustments suggested.</p>
-              ) : (
-                <div className="text-[11px] text-slate-400 leading-relaxed font-mono whitespace-pre-line bg-slate-950 p-3 rounded-lg border border-slate-900">
-                  {analysis.formattingSuggestions}
+          ) : (
+            <div className="space-y-6 animate-fadeIn font-mono text-[11px]">
+              {/* Complexity Estimation */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 bg-slate-950/60 border border-slate-900 rounded-xl space-y-1.5">
+                  <span className="text-[8px] text-slate-500 uppercase tracking-widest block">Estimated Time Cost</span>
+                  <span className={`text-sm font-extrabold block truncate ${
+                    analysis.timeComplexity && analysis.timeComplexity.includes('determined') ? 'text-slate-500 font-normal italic text-[10px]' : 'text-blue-400'
+                  }`}>
+                    {analysis.timeComplexity}
+                  </span>
                 </div>
-              )}
-            </div>
-          </div>
-        )}
 
-        {/* TAB 3: REFACTOREDSOLUTION */}
-        {activeTab === 'refactoring' && (
-          <div className="h-full flex flex-col relative animate-fadeIn">
-            {/* Copy button */}
-            <button
-              onClick={handleCopyCode}
-              className="absolute right-3 top-3 z-10 flex items-center gap-1.5 px-3 py-1.5 bg-blue-950 border border-blue-800 text-[10px] font-mono text-blue-300 rounded-lg hover:bg-blue-900 transition-all cursor-pointer shadow-md select-none"
-            >
-              <Copy className="w-3.5 h-3.5" />
-              {copied ? 'COPIED!' : 'COPY CODE'}
-            </button>
+                <div className="p-4 bg-slate-950/60 border border-slate-900 rounded-xl space-y-1.5">
+                  <span className="text-[8px] text-slate-500 uppercase tracking-widest block">Estimated Space Cost</span>
+                  <span className={`text-sm font-extrabold block truncate ${
+                    analysis.spaceComplexity && analysis.spaceComplexity.includes('determined') ? 'text-slate-500 font-normal italic text-[10px]' : 'text-cyan-400'
+                  }`}>
+                    {analysis.spaceComplexity}
+                  </span>
+                </div>
+              </div>
 
-            <div className="flex-1 bg-slate-950 border border-slate-900 rounded-xl overflow-hidden min-h-[380px]">
-              <Editor
-                height="100%"
-                language={monacoLanguage}
-                theme="vs-dark"
-                value={analysis.improvedCode || '// Corrected solution block.'}
-                loading={
-                  <div className="absolute inset-0 flex items-center justify-center font-mono text-xs text-slate-650">
-                    Syncing files...
+              {/* Formatting suggestions */}
+              <div className="p-4 bg-slate-950/60 border border-slate-900 rounded-xl space-y-3 font-sans">
+                <span className="text-[9px] font-mono text-slate-500 uppercase tracking-widest block font-bold flex items-center gap-1.5">
+                  <Wand2 className="w-3.5 h-3.5 text-cyan-400" />
+                  Formatting & Styling Suggestions
+                </span>
+
+                {(!analysis.formattingSuggestions) ? (
+                  <p className="text-slate-500 italic text-[11px]">No layout adjustments suggested.</p>
+                ) : (
+                  <div className="text-[11px] text-slate-400 leading-relaxed font-mono whitespace-pre-line bg-slate-950 p-3 rounded-lg border border-slate-900">
+                    {analysis.formattingSuggestions}
                   </div>
-                }
-                options={{
-                  readOnly: true,
-                  minimap: { enabled: false },
-                  fontSize: 12,
-                  scrollbar: {
-                    verticalScrollbarSize: 6,
-                    horizontalScrollbarSize: 6
-                  },
-                  lineNumbersMinChars: 3,
-                  scrollBeyondLastLine: false
-                }}
-              />
+                )}
+              </div>
             </div>
-          </div>
+          )
         )}
+
+        {/* TAB 3: REFACTOREDSOLUTION (HIDDEN FOR JS/REACT) */}
+        {!isJsOrReact && activeTab === 'refactoring' && (
+          strictMode ? (
+            <div className="glass-card border-amber-950/40 bg-amber-950/5 rounded-2xl p-6 flex flex-col items-center justify-center text-center h-[380px] font-mono text-xs text-amber-500/80 animate-fadeIn">
+              <AlertTriangle className="w-8 h-8 mb-3 text-amber-500 animate-pulse" />
+              <h4 className="font-bold uppercase tracking-widest mb-2 text-amber-400">Strict mode locked</h4>
+              <p className="text-[10px] text-slate-500 uppercase leading-relaxed max-w-xs font-semibold">
+                Corrected code generation and automated solutions are disabled in raw compiler verification mode (behaving strictly like javac).
+              </p>
+              <p className="text-[9px] text-slate-650 uppercase mt-4">
+                Switch to REPAIR MODE to enable virtual mentor fixes.
+              </p>
+            </div>
+          ) : (
+            <div className="h-full flex flex-col relative animate-fadeIn">
+              {/* Copy button */}
+              <button
+                onClick={handleCopyCode}
+                className="absolute right-3 top-3 z-10 flex items-center gap-1.5 px-3 py-1.5 bg-blue-950 border border-blue-800 text-[10px] font-mono text-blue-300 rounded-lg hover:bg-blue-900 transition-all cursor-pointer shadow-md select-none"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                {copied ? 'COPIED!' : 'COPY CODE'}
+              </button>
+
+              <div className="flex-1 bg-slate-950 border border-slate-900 rounded-xl overflow-hidden min-h-[380px]">
+                <Editor
+                  height="100%"
+                  language={monacoLanguage}
+                  theme="vs-dark"
+                  value={analysis.improvedCode || '// Corrected solution block.'}
+                  loading={
+                    <div className="absolute inset-0 flex items-center justify-center font-mono text-xs text-slate-650">
+                      Syncing files...
+                    </div>
+                  }
+                  options={{
+                    readOnly: true,
+                    minimap: { enabled: false },
+                    fontSize: 12,
+                    scrollbar: {
+                      verticalScrollbarSize: 6,
+                      horizontalScrollbarSize: 6
+                    },
+                    lineNumbersMinChars: 3,
+                    scrollBeyondLastLine: false
+                  }}
+                />
+              </div>
+            </div>
+          )
+        )}
+
+
       </div>
     </div>
   );

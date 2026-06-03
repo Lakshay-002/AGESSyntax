@@ -11,6 +11,7 @@ export default function Review() {
   const [error, setError] = useState(null);
   const [selectedErrorLine, setSelectedErrorLine] = useState(null);
   const [fileName, setFileName] = useState('');
+  const [strictMode, setStrictMode] = useState(false);
   const fileInputRef = useRef(null);
 
   const editorRef = useRef(null);
@@ -100,6 +101,7 @@ export default function Review() {
         body: JSON.stringify({
           language,
           code,
+          strictMode,
         }),
       });
 
@@ -124,40 +126,100 @@ export default function Review() {
       // Fallback: Simulate standard network latency and trigger mock analyzer directly on client
       await new Promise((resolve) => setTimeout(resolve, 2000));
       
-      const isPython = language.toLowerCase() === 'python';
-      const isJava = language.toLowerCase() === 'java';
-      
-      const mockResult = {
-        syntaxStatus: 'Syntax errors detected.',
-        errors: [
-          {
-            line: isPython ? 4 : 3,
-            column: 5,
-            severity: 'Critical',
-            issueType: isPython ? 'Indentation Problem' : 'Missing Semicolon',
-            explanation: isPython 
-              ? 'IndentationError: unexpected indent. Python relies strictly on matching indentation spaces to define code blocks.'
-              : 'SyntaxError: Missing semicolon. In JavaScript/React, missing semicolons can trigger compiler parser failures on statement bound maps.',
-            suggestion: isPython 
-              ? 'Remove extraneous space prefixes on this line to align with outer scope blocks.' 
-              : 'Add a semicolon (;) at the end of the statement.'
-          },
-          {
-            line: isPython ? 5 : 6,
-            column: 8,
-            severity: 'Medium',
-            issueType: 'Beginner coding mistake',
-            explanation: 'Discovered a potential spelling typo or invalid keyword reference.',
-            suggestion: 'Verify standard built-in keyword spellings.'
+      let hasLocalErrors = false;
+      let mockErrors = [];
+      const codeLines = code.split('\n');
+      const langLower = language.toLowerCase();
+
+      if (langLower === 'java') {
+        let braces = 0;
+        for (let i = 0; i < codeLines.length; i++) {
+          braces += (codeLines[i].match(/{/g) || []).length;
+          braces -= (codeLines[i].match(/}/g) || []).length;
+          
+          const trimmed = codeLines[i].trim();
+          if (
+            trimmed.length > 0 &&
+            !trimmed.endsWith(';') &&
+            !trimmed.endsWith('{') &&
+            !trimmed.endsWith('}') &&
+            !trimmed.startsWith('import ') &&
+            !trimmed.startsWith('package ') &&
+            !trimmed.startsWith('@') &&
+            !trimmed.startsWith('public class ') &&
+            !trimmed.startsWith('class ') &&
+            !trimmed.includes('if (') &&
+            !trimmed.includes('for (') &&
+            !trimmed.includes('while (')
+          ) {
+            mockErrors.push({
+              line: i + 1,
+              column: codeLines[i].length || 1,
+              severity: 'High',
+              issueType: 'Missing Semicolon',
+              explanation: 'This Java statement appears to be missing a terminating semicolon (;).',
+              suggestion: 'Add a semicolon (;) to the end of this statement.'
+            });
+            hasLocalErrors = true;
           }
-        ],
-        formattingSuggestions: '* Add spaces around operators (e.g. x = y instead of x=y)\n* Break nested conditions into smaller intermediate variables\n* Use camelCase naming for variables in JavaScript, and snake_case in Python.',
-        timeComplexity: 'Complexity could not be reliably determined',
-        spaceComplexity: 'Complexity could not be reliably determined',
-        improvedCode: isPython 
-          ? `def calculate_sum(nums):\n    total_sum = 0 # Clean initialized local variable\n    for num in nums:\n        total_sum += num\n    return total_sum`
-          : `function calculateSum(nums) {\n    let totalSum = 0; // Correctly declared block variable\n    for (let i = 0; i < nums.length; i++) {\n        totalSum += nums[i];\n    }\n    return totalSum;\n}`,
-        mentorNotes: "You are doing great! Don't let syntax errors discourage you—every software engineer encounters them daily. Focus on checking matching brackets and statement endings, and let clean indentations guide your blocks. Keep coding!"
+        }
+        if (braces !== 0) {
+          mockErrors.push({
+            line: codeLines.length,
+            column: 1,
+            severity: 'Critical',
+            issueType: 'Missing Brackets',
+            explanation: `Mismatched class or method curly braces. Braces are off by: ${braces}.`,
+            suggestion: 'Ensure every opening curly brace { has a matching closing brace }.'
+          });
+          hasLocalErrors = true;
+        }
+      } else if (langLower === 'python') {
+        for (let i = 0; i < codeLines.length; i++) {
+          const trimmed = codeLines[i].trim();
+          if (trimmed.startsWith('def ') && !trimmed.endsWith(':')) {
+            mockErrors.push({
+              line: i + 1,
+              column: codeLines[i].length || 1,
+              severity: 'Critical',
+              issueType: 'Syntax Error',
+              explanation: 'Python function definition is missing a colon (:).',
+              suggestion: 'Add a colon (:) at the end of the function header.'
+            });
+            hasLocalErrors = true;
+          }
+        }
+      } else if (langLower === 'javascript' || langLower === 'react') {
+        let braces = 0;
+        for (let i = 0; i < codeLines.length; i++) {
+          braces += (codeLines[i].match(/{/g) || []).length;
+          braces -= (codeLines[i].match(/}/g) || []).length;
+        }
+        if (braces !== 0) {
+          mockErrors.push({
+            line: codeLines.length,
+            column: 1,
+            severity: 'Critical',
+            issueType: 'Missing Brackets',
+            explanation: `Mismatched curly braces. Braces are off by: ${braces}.`,
+            suggestion: 'Ensure every opening curly brace { has a matching closing brace }.'
+          });
+          hasLocalErrors = true;
+        }
+      }
+
+      const mockResult = {
+        syntaxStatus: hasLocalErrors ? 'Syntax errors detected.' : 'No major syntax issues found.',
+        errors: mockErrors,
+        formattingSuggestions: strictMode ? null : (langLower === 'python'
+          ? '* Use snake_case naming for variables in Python.\n* Keep code layout clean.'
+          : '* Use camelCase naming for variables.\n* Code looks clean and correctly structured.'),
+        timeComplexity: strictMode ? null : 'Complexity could not be reliably determined',
+        spaceComplexity: strictMode ? null : 'Complexity could not be reliably determined',
+        improvedCode: strictMode ? null : code,
+        mentorNotes: strictMode ? null : (hasLocalErrors
+          ? "Don't let syntax errors discourage you—every software engineer encounters them daily. Check your brackets and statement endings!"
+          : "Excellent job! No syntax issues were detected in your code. Keep up the great work!")
       };
       
       setAnalysis(mockResult);
@@ -176,14 +238,14 @@ export default function Review() {
         <div>
           <h2 className="text-xl font-bold font-mono text-slate-100 flex items-center gap-2">
             <Terminal className="w-5 h-5 text-blue-400" />
-            SYNTAX & QUALITY COCKPIT
+            SYNTAX & QUALITY REVIEW
           </h2>
           <p className="text-slate-400 text-xs mt-1">
             Input Java, Python, or JavaScript to audit syntax, typos, missing braces, and complexities.
           </p>
         </div>
 
-        {/* File upload cockpit */}
+        {/* File upload controls */}
         <div className="flex items-center gap-3">
           <input
             type="file"
@@ -199,6 +261,30 @@ export default function Review() {
             <Upload className="w-3.5 h-3.5 text-blue-400" />
             {fileName ? `LOADED: ${fileName}` : 'UPLOAD FILE'}
           </button>
+
+          {/* Strict vs Repair Mode Toggle */}
+          <div className="flex items-center bg-slate-950 border border-slate-900 p-0.5 rounded-xl text-[10px] font-mono shadow-inner">
+            <button
+              onClick={() => setStrictMode(false)}
+              className={`px-3 py-1.5 rounded-lg transition-all font-mono font-bold cursor-pointer ${
+                !strictMode
+                  ? 'bg-blue-950/50 text-blue-400 border border-blue-900/40 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-350'
+              }`}
+            >
+              REPAIR
+            </button>
+            <button
+              onClick={() => setStrictMode(true)}
+              className={`px-3 py-1.5 rounded-lg transition-all font-mono font-bold cursor-pointer ${
+                strictMode
+                  ? 'bg-amber-950/50 text-amber-400 border border-amber-900/40 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-350'
+              }`}
+            >
+              STRICT (javac)
+            </button>
+          </div>
 
           <div className="flex items-center gap-2 px-3 py-2 bg-slate-950 border border-slate-900 rounded-xl text-[10px] font-mono text-slate-450 uppercase">
             <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-ping shrink-0" />
@@ -256,6 +342,7 @@ export default function Review() {
               language={language} 
               selectedErrorLine={selectedErrorLine}
               setSelectedErrorLine={setSelectedErrorLine}
+              strictMode={strictMode}
             />
           )}
         </div>

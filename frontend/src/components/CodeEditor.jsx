@@ -2,13 +2,13 @@ import React, { useEffect } from 'react';
 import Editor from '@monaco-editor/react';
 import { FileCode, Sparkles, BookOpen } from 'lucide-react';
 
-// Pre-defined inefficient DSA problem templates to let students test the app immediately
+// Pre-defined code templates to let students start coding immediately
 const INEFFICIENT_TEMPLATES = {
-  Python: `def contains_duplicate(nums):\n    # Inefficient O(N^2) Time check using nested loops\n    # Highly suboptimal for large contest arrays!\n    for i in range(len(nums)):\n        for j in range(i + 1, len(nums)):\n            if nums[i] == nums[j]:\n                return True\n    return False\n\n# Test input\nprint(contains_duplicate([1, 2, 3, 1]))`,
-  Java: `public class Solution {\n    // Exponential recursive Fibonacci (O(2^N))\n    // Repeatedly computes overlapping subproblems without cache!\n    public int fibonacci(int n) {\n        if (n <= 1) {\n            return n;\n        }\n        return fibonacci(n - 1) + fibonacci(n - 2);\n    }\n}`,
-  JavaScript: `function twoSum(nums, target) {\n    // Inefficient nested loops checking all index pairs (O(N^2))\n    // Bypasses HashMaps completely!\n    for (let i = 0; i < nums.length; i++) {\n        for (let j = i + 1; j < nums.length; j++) {\n            if (nums[i] + nums[j] === target) {\n                return [i, j];\n            }\n        }\n    }\n    return [];\n}`,
-  React: `import React from 'react';\n\nexport default function BadWidget({ items }) {\n  // Anti-Pattern: Using array indices as loop keys\n  // Exploit: Rendering unsanitized HTML opening XSS risks!\n  return (\n    <div className="list-container">\n      {items.map((item, idx) => (\n        <div key={idx} dangerouslySetInnerHTML={{ __html: item.bio }} />\n      ))}\n    </div>\n  );\n}`,
-  CSS: `/* Bloated, overlapping and redundant CSS layout */\n.main-container {\n  background-color: #ffffff;\n  background-color: #f3f3f3; /* Overlapping */\n  margin: 10px 10px 10px 10px;\n  padding: 5px;\n}\n\n#unique-header {\n  color: #3b82f6 !important; /* Avoid !important overrides */\n  font-size: 14px;\n}`
+  Python: `def my_function():\n    # Write your Python code here\n    pass`,
+  Java: `public class Solution {\n    // Write your Java code here\n}`,
+  JavaScript: `function myFunction() {\n    // Write your JavaScript code here\n}`,
+  React: `import React from 'react';\n\nexport default function Widget() {\n  // Write your React component here\n  return (\n    <div>\n      {/* Code goes here */}\n    </div>\n  );\n}`,
+  CSS: `/* Write your CSS styles here */\n.container {\n  \n}`
 };
 
 export default function CodeEditor({ 
@@ -55,7 +55,7 @@ export default function CodeEditor({
             type="button"
             onClick={loadTemplate}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg text-[10px] font-mono text-slate-400 hover:text-slate-200 transition-all cursor-pointer"
-            title="Reload target inefficient algorithm template"
+            title="Reload starter code template"
           >
             <BookOpen className="w-3.5 h-3.5 text-blue-400" />
             LOAD TEMPLATE
